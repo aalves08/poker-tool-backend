@@ -9,7 +9,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const { handleUserConnect, checkRoom } = require('./modules/api');
-const { getGithubOauthToken, getGithubUser, checkRancherOrgMembership } = require('./modules/github-oauth');
+const { handleGithubLogin } = require('./modules/github-oauth');
+const { createSessionToken, validateSessionToken } = require('./modules/tokenOps');
 
 // express init
 const app = express();
@@ -56,6 +57,23 @@ io.on('connection', (socket) => {
   handleUserConnect(socket, io);
 });
 
+// validate user token
+app.post('/api/validateToken', (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.send(false);
+  }
+
+  const isValid = validateSessionToken(token);
+
+  if (isValid) {
+    return res.send(true);
+  }
+
+  return res.redirect(`${process.env.FE_ORIGIN}?error=invalid_token`);
+});
+
 // check session id
 app.post('/api/checkRoom', (req, res) => {
   const { room } = req.body;
@@ -65,9 +83,6 @@ app.post('/api/checkRoom', (req, res) => {
 
 // Github oauth callback
 app.get('/api/auth/callback/github', async (req, res) => {
-  console.log('-------------------------');
-  console.log('req ******', req.query);
-
   const { code } = req.query;
 
   // TODO: handle errors in FE
@@ -79,19 +94,15 @@ app.get('/api/auth/callback/github', async (req, res) => {
     return res.redirect(`${process.env.FE_ORIGIN}?error=no_code`);
   }
 
-  const data1 = await getGithubOauthToken({ code });
-  console.log('data1 ******', data1);
-  const data2 = await getGithubUser({ accessToken: data1.access_token });
-  console.log('data2 ******', data2);
-  const data3 = await checkRancherOrgMembership({
-    user: data2.login,
-    accessToken: data1.access_token,
-  });
-  console.log('data3 ******', data3);
+  const data = await handleGithubLogin({ code });
+
+  if (data.error) {
+    return res.redirect(`${process.env.FE_ORIGIN}?error=${encodeURIComponent(data.errorData)}`);
+  }
 
   return res.redirect(process.env.FE_ORIGIN);
 });
 
 httpServer.listen(8080, () => {
-  console.log('Server is running...', process.env.GITHUB_CLIENT_ID);
+  console.log('Server is running...');
 });
