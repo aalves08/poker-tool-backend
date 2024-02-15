@@ -59,6 +59,23 @@ const checkRancherOrgMembership = async ({ user, accessToken }) => {
   return true;
 };
 
+const checkGithubOauthToken = async (accessToken) => {
+  const reqData = await axios.get(
+    'https://api.github.com/user/repos',
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (reqData.status === 401) {
+    return false;
+  }
+
+  return true;
+};
+
 const handleGithubLogin = async ({ code }) => {
   const oauthToken = await getGithubOauthToken({ code });
 
@@ -81,7 +98,12 @@ const handleGithubLogin = async ({ code }) => {
     return { error: true, errorData: 'not_member' };
   }
 
-  return membershipCheck;
+  return {
+    username: userData.login,
+    avatar: userData.avatar_url,
+    fullName: userData.name,
+    accessToken: oauthToken.access_token,
+  };
 };
 
-module.exports = { handleGithubLogin };
+module.exports = { handleGithubLogin, checkGithubOauthToken };

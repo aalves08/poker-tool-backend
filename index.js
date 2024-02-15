@@ -1,7 +1,6 @@
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-// const redis = require('redis');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
@@ -10,7 +9,7 @@ dotenv.config();
 
 const { handleUserConnect, checkRoom } = require('./modules/api');
 const { handleGithubLogin } = require('./modules/github-oauth');
-const { createSessionToken, validateSessionToken } = require('./modules/tokenOps');
+const { createSessionToken, validateSessionToken } = require('./modules/jwt-token-ops');
 
 // express init
 const app = express();
@@ -21,29 +20,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const httpServer = createServer(app);
-
-// setup redis
-// const redisClient = redis.createClient(6379, '127.0.0.1');
-
-// Connect to redis server
-// (async () => {
-//   await redisClient.connect();
-// })();
-
-// redisClient.on('connect', () => {
-//   console.log('REDIS Connected!');
-
-//   const io = new Server(httpServer, {
-//     cors: {
-//       origin: 'http://localhost:4000',
-//       methods: ['GET', 'POST'],
-//     },
-//   });
-
-//   io.on('connection', (socket) => {
-//     handleUserConnect(socket, io, redisClient);
-//   });
-// });
 
 // init socketio
 const io = new Server(httpServer, {
@@ -58,20 +34,20 @@ io.on('connection', (socket) => {
 });
 
 // validate user token
-app.post('/api/validateToken', (req, res) => {
+app.post('/api/validateToken', async (req, res) => {
   const { token } = req.body;
 
   if (!token) {
     return res.send(false);
   }
 
-  const isValid = validateSessionToken(token);
+  const isValid = await validateSessionToken(token);
 
   if (isValid) {
-    return res.send(true);
+    return res.send(isValid);
   }
 
-  return res.redirect(`${process.env.FE_ORIGIN}?error=invalid_token`);
+  return res.redirect(401, `${process.env.FE_ORIGIN}?error=invalid_token`);
 });
 
 // check session id
@@ -100,7 +76,10 @@ app.get('/api/auth/callback/github', async (req, res) => {
     return res.redirect(`${process.env.FE_ORIGIN}?error=${encodeURIComponent(data.errorData)}`);
   }
 
-  return res.redirect(process.env.FE_ORIGIN);
+  const sessionToken = createSessionToken(data);
+  console.log(`User ${data.username} has logged in to the app with sessionToken ${sessionToken}`); // eslint-disable-line no-console
+
+  return res.redirect(`${process.env.FE_ORIGIN}?sessionToken=${encodeURIComponent(sessionToken)}&username=${encodeURIComponent(data.username)}&avatar=${encodeURIComponent(data.avatar)}`);
 });
 
 httpServer.listen(8080, () => {

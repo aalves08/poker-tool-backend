@@ -62,6 +62,7 @@ const handleUserConnect = (socket) => {
   // user data
   const { role } = socket.handshake.query;
   const { username } = socket.handshake.query;
+  const { avatar } = socket.handshake.query;
   const { userId } = socket.handshake.query;
   const { id } = socket;
 
@@ -92,11 +93,13 @@ const handleUserConnect = (socket) => {
 
   if (userFoundIndex >= 0) {
     database[room].users[userFoundIndex].username = username;
+    database[room].users[userFoundIndex].avatar = avatar;
     database[room].users[userFoundIndex].socketId = id;
   } else {
     database[room].users.push({
       role,
       username,
+      avatar,
       userId,
       socketId: id,
     });
