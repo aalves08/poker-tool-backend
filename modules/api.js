@@ -150,6 +150,14 @@ const handleUserConnect = (socket) => {
     socket.nsp.to(room).emit('updateSession', database[room]);
   });
 
+  // **EVENT** update admin route
+  socket.on('updateAdminCurrRoute', (adminRoute) => {
+    database[room].adminRoute = adminRoute;
+
+    // update session on all clients
+    socket.nsp.to(room).emit('updateSession', database[room]);
+  });
+
   // **EVENT** update issues list
   socket.on('updateIssuesList', (issues) => {
     database[room].issues = issues;
@@ -224,12 +232,18 @@ const handleUserConnect = (socket) => {
     socket.nsp.to(room).emit('updateSession', database[room]);
   });
 
-  // **EVENT** make user an admin
+  // **EVENT** make user an admin and demote previous admin
   socket.on('makeAdmin', ({ user }) => {
     const userIndex = database[room].users.findIndex((u) => u.userId === user.userId);
 
     if (userIndex >= 0) {
       database[room].users[userIndex].role = 'admin';
+    }
+
+    const demoteUserIndex = database[room].users.findIndex((u) => u.userId === userId);
+
+    if (demoteUserIndex >= 0) {
+      database[room].users[demoteUserIndex].role = 'user';
     }
 
     // update session on all clients
