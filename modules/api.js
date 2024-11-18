@@ -62,6 +62,7 @@ const handleUserConnect = (socket) => {
   // user data
   const { role } = socket.handshake.query;
   const { username } = socket.handshake.query;
+  const { avatar } = socket.handshake.query;
   const { userId } = socket.handshake.query;
   const { id } = socket;
 
@@ -92,11 +93,13 @@ const handleUserConnect = (socket) => {
 
   if (userFoundIndex >= 0) {
     database[room].users[userFoundIndex].username = username;
+    database[room].users[userFoundIndex].avatar = avatar;
     database[room].users[userFoundIndex].socketId = id;
   } else {
     database[room].users.push({
       role,
       username,
+      avatar,
       userId,
       socketId: id,
     });
@@ -142,6 +145,14 @@ const handleUserConnect = (socket) => {
   // **EVENT** update session name
   socket.on('updateSessionName', (newSessionName) => {
     database[room].sessionName = newSessionName;
+
+    // update session on all clients
+    socket.nsp.to(room).emit('updateSession', database[room]);
+  });
+
+  // **EVENT** update admin route
+  socket.on('updateAdminCurrRoute', (adminRoute) => {
+    database[room].adminRoute = adminRoute;
 
     // update session on all clients
     socket.nsp.to(room).emit('updateSession', database[room]);
@@ -221,12 +232,18 @@ const handleUserConnect = (socket) => {
     socket.nsp.to(room).emit('updateSession', database[room]);
   });
 
-  // **EVENT** make user an admin
+  // **EVENT** make user an admin and demote previous admin
   socket.on('makeAdmin', ({ user }) => {
     const userIndex = database[room].users.findIndex((u) => u.userId === user.userId);
 
     if (userIndex >= 0) {
       database[room].users[userIndex].role = 'admin';
+    }
+
+    const demoteUserIndex = database[room].users.findIndex((u) => u.userId === userId);
+
+    if (demoteUserIndex >= 0) {
+      database[room].users[demoteUserIndex].role = 'user';
     }
 
     // update session on all clients
