@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+const connectDB = require('./db/mongodbConnection');
 
 dotenv.config();
 
@@ -11,77 +12,81 @@ const { handleUserConnect, checkRoom } = require('./modules/api');
 const { handleGithubLogin } = require('./modules/github-oauth');
 const { createSessionToken, validateSessionToken } = require('./modules/jwt-token-ops');
 
-// express init
-const app = express();
 
-// setup cors and body-parser
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Connect to MongoDB before starting the server
+connectDB().then(() => {
+  // express init
+  const app = express();
 
-const httpServer = createServer(app);
+  // setup cors and body-parser
+  app.use(cors());
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: true }));
 
-// init socketio
-const io = new Server(httpServer, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-});
+  const httpServer = createServer(app);
 
-io.on('connection', (socket) => {
-  handleUserConnect(socket, io);
-});
+  // init socketio
+  const io = new Server(httpServer, {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+    },
+  });
 
-// validate user token
-app.post('/api/validateToken', async (req, res) => {
-  const { token } = req.body;
+  io.on('connection', async (socket) => {
+    await handleUserConnect(socket, io);
+  });
 
-  if (!token) {
-    return res.send(false);
-  }
+  // validate user token
+  app.post('/api/validateToken', async (req, res) => {
+    const { token } = req.body;
 
-  const isValid = await validateSessionToken(token);
+    if (!token) {
+      return res.send(false);
+    }
 
-  if (isValid) {
-    return res.send(isValid);
-  }
+    const isValid = await validateSessionToken(token);
 
-  return res.redirect(401, `${process.env.FE_ORIGIN}?error=invalid_token`);
-});
+    if (isValid) {
+      return res.send(isValid);
+    }
 
-// check session id
-app.post('/api/checkRoom', (req, res) => {
-  const { room } = req.body;
-  const session = checkRoom(room);
-  res.send(session);
-});
+    return res.redirect(401, `${process.env.FE_ORIGIN}?error=invalid_token`);
+  });
 
-// Github oauth callback
-app.get('/api/auth/callback/github', async (req, res) => {
-  const { code } = req.query;
+  // check session id
+  app.post('/api/checkRoom', async (req, res) => {
+    const { room } = req.body;
+    const session = await checkRoom(room);
+    res.send(session);
+  });
 
-  // TODO: handle errors in FE
-  if (req.query.error) {
-    return res.redirect(`${process.env.FE_ORIGIN}?error=${encodeURIComponent(req.query.error)}`);
-  }
+  // Github oauth callback
+  app.get('/api/auth/callback/github', async (req, res) => {
+    const { code } = req.query;
 
-  if (!code) {
-    return res.redirect(`${process.env.FE_ORIGIN}?error=no_code`);
-  }
+    // TODO: handle errors in FE
+    if (req.query.error) {
+      return res.redirect(`${process.env.FE_ORIGIN}?error=${encodeURIComponent(req.query.error)}`);
+    }
 
-  const data = await handleGithubLogin({ code });
+    if (!code) {
+      return res.redirect(`${process.env.FE_ORIGIN}?error=no_code`);
+    }
 
-  if (data.error) {
-    return res.redirect(`${process.env.FE_ORIGIN}?error=${encodeURIComponent(data.errorData)}`);
-  }
+    const data = await handleGithubLogin({ code });
 
-  const sessionToken = createSessionToken(data);
-  console.log(`User ${data.username} has logged in to the app with sessionToken ${sessionToken}`); // eslint-disable-line no-console
+    if (data.error) {
+      return res.redirect(`${process.env.FE_ORIGIN}?error=${encodeURIComponent(data.errorData)}`);
+    }
 
-  return res.redirect(`${process.env.FE_ORIGIN}?sessionToken=${encodeURIComponent(sessionToken)}&username=${encodeURIComponent(data.username)}&avatar=${encodeURIComponent(data.avatar)}`);
-});
+    const sessionToken = createSessionToken(data);
+    console.log(`User ${data.username} has logged in to the app with sessionToken ${sessionToken}`); // eslint-disable-line no-console
 
-httpServer.listen(8080, () => {
-  console.log('Server is running...');
+    return res.redirect(`${process.env.FE_ORIGIN}?sessionToken=${encodeURIComponent(sessionToken)}&username=${encodeURIComponent(data.username)}&avatar=${encodeURIComponent(data.avatar)}`);
+  });
+
+  httpServer.listen(8080, () => {
+    console.log('Server is running...');
+  });
 });
