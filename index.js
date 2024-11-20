@@ -86,7 +86,7 @@ connectDB().then(() => {
     return res.redirect(`${process.env.FE_ORIGIN}?sessionToken=${encodeURIComponent(sessionToken)}&username=${encodeURIComponent(data.username)}&avatar=${encodeURIComponent(data.avatar)}`);
   });
 
-  httpServer.listen(8080, () => {
+  httpServer.listen(process.env.API_PORT, () => {
     console.log('Server is running...');
   });
 });
