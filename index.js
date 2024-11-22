@@ -79,7 +79,7 @@ app.get('/api/auth/callback/github', async (req, res) => {
   const sessionToken = createSessionToken(data);
   console.log(`User ${data.username} has logged in to the app with sessionToken ${sessionToken}`); // eslint-disable-line no-console
 
-  return res.redirect(`${process.env.FE_ORIGIN}?sessionToken=${encodeURIComponent(sessionToken)}&username=${encodeURIComponent(data.username)}&avatar=${encodeURIComponent(data.avatar)}`);
+  return res.redirect(`${process.env.FE_ORIGIN}?sessionToken=${encodeURIComponent(sessionToken)}&githubToken=${encodeURIComponent(data.githubToken)}&username=${encodeURIComponent(data.username)}&avatar=${encodeURIComponent(data.avatar)}`);
 });
 
 httpServer.listen(process.env.API_PORT, () => {
