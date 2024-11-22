@@ -103,6 +103,7 @@ const handleGithubLogin = async ({ code }) => {
     avatar: userData.avatar_url,
     fullName: userData.name,
     accessToken: oauthToken.access_token,
+    githubToken: process.env.VUE_APP_API_TOKEN,
   };
 };
 

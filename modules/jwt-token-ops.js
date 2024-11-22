@@ -14,7 +14,7 @@ const validateSessionToken = async (token) => {
     isValid = await checkGithubOauthToken(decode.accessToken);
   }
 
-  return isValid ? { username: decode.username, avatar: decode.avatar } : isValid;
+  return isValid ? { username: decode.username, avatar: decode.avatar, githubToken: decode.githubToken } : isValid;
 };
 
 module.exports = { createSessionToken, validateSessionToken };
